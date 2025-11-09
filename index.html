@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cek Koneksi — Simple Network Tester</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{margin:0;background:linear-gradient(180deg,#071021 0%, #071228 100%);color:#e6eef8;padding:28px}
+    .wrap{max-width:980px;margin:0 auto}
+    h1{margin:0 0 12px;font-size:20px}
+    .card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);padding:18px;border-radius:12px;margin-bottom:14px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text],select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:inherit}
+    .row{display:flex;gap:12px}
+    .row .card{flex:1}
+    button{background:var(--accent);border:0;padding:10px 12px;border-radius:8px;color:#042028;font-weight:600;cursor:pointer}
+    small{color:var(--muted)}
+    pre{background:#041020;padding:12px;border-radius:8px;overflow:auto;color:#cfeffd}
+    .stat{display:flex;gap:12px;align-items:center}
+    .stat .value{font-size:18px;font-weight:700}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Cek Koneksi — Simple Network Tester</h1>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <div style="font-size:13px;color:var(--muted)">Status</div>
+          <div id="status" class="stat"><div class="value">—</div><small id="type">—</small></div>
+        </div>
+        <div>
+          <div style="font-size:13px;color:var(--muted)">Connection API</div>
+          <div id="conninfo"><small>—</small></div>
+        </div>
+        <div>
+          <div style="font-size:13px;color:var(--muted)">Last check</div>
+          <div id="last">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <label for="pingUrl">URL untuk ping / test latency</label>
+        <input id="pingUrl" type="text" value="https://httpbin.org/get" />
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button id="runPing">Jalankan Ping (10x)</button>
+          <button id="stopPing">Stop</button>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:13px;color:var(--muted)">Hasil ping</div>
+          <pre id="pingResult">—</pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <label for="downloadUrl">URL untuk uji download (opsional — harus mengizinkan CORS)</label>
+        <input id="downloadUrl" type="text" placeholder="https://example.com/10MB.bin" />
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button id="runDownload">Uji Download</button>
+          <button id="runUpload">Uji Upload (buatkan POST ke URL)</button>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:13px;color:var(--muted)">Hasil bandwidth</div>
+          <pre id="bwResult">—</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Log / Konsol</label>
+      <pre id="log" style="height:160px">—</pre>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="clearLog">Bersihkan Log</button>
+        <button id="copyLog">Salin Log</button>
+      </div>
+    </div>
+
+    <footer>Catatan: beberapa uji (download/upload) membutuhkan file/endpoint yang mengizinkan CORS. Untuk hasil paling andal — tempatkan file pengujian pada server yang sama dengan laman ini.</footer>
+  </div>
+
+<script>
+const statusEl = document.getElementById('status').querySelector('.value');
+const typeEl = document.getElementById('type');
+const connInfo = document.getElementById('conninfo');
+const lastEl = document.getElementById('last');
+const pingUrlInput = document.getElementById('pingUrl');
+const pingResult = document.getElementById('pingResult');
+const runPingBtn = document.getElementById('runPing');
+const stopPingBtn = document.getElementById('stopPing');
+const logEl = document.getElementById('log');
+const clearLogBtn = document.getElementById('clearLog');
+const copyLogBtn = document.getElementById('copyLog');
+const downloadUrlInput = document.getElementById('downloadUrl');
+const runDownloadBtn = document.getElementById('runDownload');
+const runUploadBtn = document.getElementById('runUpload');
+const bwResult = document.getElementById('bwResult');
+
+let pingAbort = false;
+
+function log(...args){
+  const s = new Date().toLocaleTimeString() + ' — ' + args.join(' ');
+  if(logEl.textContent.trim() === '—') logEl.textContent = '';
+  logEl.textContent += s + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function updateStatus(){
+  const online = navigator.onLine;
+  statusEl.textContent = online ? 'Online' : 'Offline';
+  statusEl.style.color = online ? '#7ef0f6' : '#ff9b9b';
+  lastEl.textContent = new Date().toLocaleString();
+  // Connection API
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if(c){
+    connInfo.innerHTML = `<small>type: ${c.effectiveType || c.type || '—'}, downlink: ${c.downlink || '—'} Mbps, rtt: ${c.rtt || '—'} ms</small>`;
+  } else {
+    connInfo.innerHTML = '<small>Network Information API tidak tersedia di browser ini</small>';
+  }
+}
+
+window.addEventListener('online', ()=>{ updateStatus(); log('Event: online'); });
+window.addEventListener('offline', ()=>{ updateStatus(); log('Event: offline'); });
+if(navigator.connection){ navigator.connection.addEventListener('change', ()=>{ updateStatus(); log('Connection info changed'); }) }
+updateStatus();
+
+async function pingUrl(url, count=10){
+  pingAbort = false;
+  const results = [];
+  pingResult.textContent = 'Running...';
+  log('Mulai ping', url, 'x'+count);
+  for(let i=0;i<count;i++){
+    if(pingAbort) { log('Ping dihentikan'); break; }
+    const start = performance.now();
+    try{
+      // gunakan fetch dengan mode no-cors bisa menghasilkan opaques; prefer GET with cache: no-store
+      const res = await fetch(url, {method:'GET', cache:'no-store', mode:'cors'});
+      const end = performance.now();
+      const rtt = Math.round(end-start);
+      results.push(rtt);
+      log(`ping ${i+1}: ${rtt} ms (status ${res.status || 'opaque'})`);
+      // small delay between pings
+      await new Promise(r=>setTimeout(r, 250));
+    }catch(e){
+      const end = performance.now();
+      const rtt = Math.round(end-start);
+      results.push(null);
+      log(`ping ${i+1}: gagal (${e.message})`);
+    }
+  }
+  const numeric = results.filter(x=>typeof x === 'number');
+  if(numeric.length>0){
+    const min = Math.min(...numeric);
+    const max = Math.max(...numeric);
+    const avg = Math.round(numeric.reduce((a,b)=>a+b,0)/numeric.length);
+    pingResult.textContent = `Min: ${min} ms\nAvg: ${avg} ms\nMax: ${max} ms\nRaw: ${results.map(r=>r===null?'-':r+'ms').join(', ')}`;
+  } else {
+    pingResult.textContent = 'Semua percobaan gagal. Cek URL atau CORS.';
+  }
+}
+
+runPingBtn.addEventListener('click', ()=>{
+  const url = pingUrlInput.value.trim();
+  if(!url) return alert('Masukkan URL untuk di-ping');
+  pingUrl(url,10);
+});
+stopPingBtn.addEventListener('click', ()=>{ pingAbort = true; log('Permintaan stop ping') });
+
+clearLogBtn.addEventListener('click', ()=>{ logEl.textContent = '—' });
+copyLogBtn.addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText(logEl.textContent); alert('Log disalin ke clipboard') }catch(e){ alert('Gagal menyalin: '+e.message) }
+});
+
+// Simple download speed test (works if server mengizinkan CORS)
+async function runDownload(url){
+  if(!url) return alert('Masukkan URL file untuk uji download (harus CORS-enabled)');
+  log('Mulai uji download:', url);
+  try{
+    const start = performance.now();
+    const resp = await fetch(url, {cache:'no-store', mode:'cors'});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
+    if(!reader){
+      // fallback: read as blob
+      const blob = await resp.blob();
+      const end = performance.now();
+      const bytes = blob.size;
+      const secs = (end-start)/1000;
+      const mbps = (bytes*8/ (1024*1024)) / secs;
+      bwResult.textContent = `Downloaded ${bytes} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps`;
+      log(bwResult.textContent);
+      return;
+    }
+    let bytes = 0;
+    while(true){
+      const {done,value} = await reader.read();
+      if(done) break;
+      bytes += value.length;
+    }
+    const end = performance.now();
+    const secs = (end-start)/1000;
+    const mbps = (bytes*8/ (1024*1024)) / secs;
+    bwResult.textContent = `Downloaded ${bytes} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps`;
+    log(bwResult.textContent);
+  }catch(e){
+    bwResult.textContent = 'Gagal uji download: '+e.message;
+    log('Gagal uji download:', e.message);
+  }
+}
+
+runDownloadBtn.addEventListener('click', ()=>{ runDownload(downloadUrlInput.value.trim()) });
+
+// Simple upload test: POST generated blob (will fail if endpoint doesn't accept CORS or large uploads)
+async function runUpload(url){
+  if(!url) return alert('Masukkan URL endpoint untuk POST (upload)');
+  log('Mulai uji upload ke', url);
+  try{
+    // buat 1 MB buffer
+    const size = 1024*1024; // 1MB
+    const arr = new Uint8Array(size);
+    for(let i=0;i<size;i+=4096) arr[i]=i%256;
+    const blob = new Blob([arr]);
+    const start = performance.now();
+    const resp = await fetch(url, {method:'POST', body:blob, mode:'cors'});
+    const end = performance.now();
+    const secs = (end-start)/1000;
+    const mbps = (size*8/(1024*1024)) / secs;
+    bwResult.textContent = `Uploaded ${size} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps (status ${resp.status})`;
+    log(bwResult.textContent);
+  }catch(e){
+    bwResult.textContent = 'Gagal uji upload: '+e.message;
+    log('Gagal uji upload:', e.message);
+  }
+}
+runUploadBtn.addEventListener('click', ()=>{ runUpload(downloadUrlInput.value.trim()) });
+
+</script>
+</body>
+</html>
