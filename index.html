@@ -1,243 +1,522 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Cek Koneksi — Simple Network Tester</title>
-  <style>
-    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
-    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    body{margin:0;background:linear-gradient(180deg,#071021 0%, #071228 100%);color:#e6eef8;padding:28px}
-    .wrap{max-width:980px;margin:0 auto}
-    h1{margin:0 0 12px;font-size:20px}
-    .card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);padding:18px;border-radius:12px;margin-bottom:14px}
-    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
-    input[type=text],select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:inherit}
-    .row{display:flex;gap:12px}
-    .row .card{flex:1}
-    button{background:var(--accent);border:0;padding:10px 12px;border-radius:8px;color:#042028;font-weight:600;cursor:pointer}
-    small{color:var(--muted)}
-    pre{background:#041020;padding:12px;border-radius:8px;overflow:auto;color:#cfeffd}
-    .stat{display:flex;gap:12px;align-items:center}
-    .stat .value{font-size:18px;font-weight:700}
-    footer{margin-top:18px;color:var(--muted);font-size:13px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SpeedTest - Simple Purple Edition</title>
+<style>
+  :root{
+    --bg:#0b0720;
+    --panel:#0f0b24;
+    --muted:#9aa3c0;
+    --accent:#a855f7; /* purple */
+    --accent-2:#7c3aed;
+    --glass: rgba(255,255,255,0.035);
+    --glass-2: rgba(255,255,255,0.02);
+  }
+  *{box-sizing:border-box;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  html,body{height:100%;margin:0;background:
+    radial-gradient(1200px 500px at 10% 10%, rgba(124,58,237,0.08), transparent 8%),
+    radial-gradient(1000px 400px at 90% 90%, rgba(168,85,247,0.06), transparent 8%),
+    var(--bg);
+    color:#e6ecff;
+  }
+  .wrap{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+  }
+
+  /* Card */
+  .card{
+    width:100%;
+    max-width:1100px;
+    background:linear-gradient(180deg,var(--panel), #090419);
+    border-radius:14px;
+    padding:28px;
+    box-shadow: 0 10px 40px rgba(2,0,18,0.7);
+    border:1px solid rgba(255,255,255,0.03);
+    display:grid;
+    grid-template-columns: 1fr 360px;
+    gap:20px;
+    align-items:center;
+  }
+
+  .left{padding:6px 12px}
+  .right{padding:10px 12px;border-left:1px dashed rgba(255,255,255,0.03)}
+  h1{margin:0;font-size:22px; letter-spacing:0.2px}
+  p.lead{margin:6px 0 18px;color:var(--muted);font-size:13px}
+
+  /* Gauge container */
+  .gauge-wrap{
+    display:flex;
+    gap:14px;
+    align-items:center;
+  }
+  .gauge{
+    width:320px;height:220px;
+    background:linear-gradient(180deg,var(--glass),transparent);
+    border-radius:12px;
+    position:relative;
+    padding:16px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+  }
+
+  /* Number panels */
+  .metrics{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    width:320px;
+  }
+  .metric{
+    background:var(--glass-2);
+    padding:12px;border-radius:10px;
+    display:flex;justify-content:space-between;align-items:center;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .metric .label{color:var(--muted);font-size:13px}
+  .metric .value{font-weight:700;font-size:18px}
+
+  /* Start button */
+  .controls{margin-top:16px;display:flex;gap:10px;align-items:center}
+  .btn{
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    border:0;padding:12px 18px;border-radius:10px;color:#fff;font-weight:600;cursor:pointer;
+    box-shadow:0 6px 18px rgba(124,58,237,0.18);
+  }
+  .btn.ghost{
+    background:transparent;border:1px solid rgba(255,255,255,0.04);
+    color:var(--muted);font-weight:600;
+  }
+  small.note{color:var(--muted);font-size:12px}
+
+  /* SVG needle and ticks */
+  svg { overflow:visible; }
+  .needle{ transform-origin: 50% 82%; transition: transform 750ms cubic-bezier(.22,.9,.28,1); }
+  .tick{ stroke: rgba(255,255,255,0.06); stroke-width:2 }
+  .tick-major{ stroke: rgba(255,255,255,0.12); stroke-width:3 }
+  .gauge-center{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:36px;
+    width:100px;height:100px;border-radius:50%;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.12));
+    display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.03);
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.6);
+    font-weight:700;font-size:18px;
+  }
+
+  .footer{ margin-top:10px;color:var(--muted);font-size:13px }
+
+  /* responsive */
+  @media (max-width:980px){
+    .card{grid-template-columns: 1fr; padding:18px}
+    .gauge{width:100%;height:220px}
+    .metrics{width:100%}
+  }
+
+  /* subtle animation when running */
+  .running .metric .value{ animation: blink 1.4s linear infinite }
+  @keyframes blink { 0%{opacity:1}50%{opacity:0.45}100%{opacity:1} }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Cek Koneksi — Simple Network Tester</h1>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div>
-          <div style="font-size:13px;color:var(--muted)">Status</div>
-          <div id="status" class="stat"><div class="value">—</div><small id="type">—</small></div>
+<div class="wrap">
+  <div class="card" id="mainCard">
+    <div class="left">
+      <h1>Simple SpeedTest — Purple Edition</h1>
+      <p class="lead">Tes kecepatan jaringan: <strong>Ping</strong>, <strong>Download</strong>, dan <strong>Upload</strong>. Klik <em>Start Test</em> untuk mulai.</p>
+
+      <div class="gauge-wrap">
+        <div class="gauge" aria-hidden="true">
+          <!-- SVG gauge (arc + ticks + needle) -->
+          <svg id="gaugeSVG" width="320" height="220" viewBox="0 0 320 220" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#d6b3ff"/>
+                <stop offset="1" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+
+            <!-- arc background -->
+            <path d="M40 160 A120 120 0 0 1 280 160" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="22" stroke-linecap="round"/>
+
+            <!-- colored arc (will be clipped by mask using stroke-dasharray) -->
+            <path id="activeArc" d="M40 160 A120 120 0 0 1 280 160" fill="none" stroke="url(#grad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 1000" />
+
+            <!-- ticks -->
+            <!-- generated by JS for better scaling -->
+
+            <!-- needle group -->
+            <g id="needleGroup" class="needle" transform="rotate(-90 160 176)">
+              <rect x="158" y="80" width="4" height="100" rx="2" fill="url(#grad)"/>
+              <circle cx="160" cy="176" r="6" fill="#111" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+            </g>
+
+            <!-- center label placeholder -->
+          </svg>
+
+          <div class="gauge-center" id="gaugeCenter">—</div>
         </div>
-        <div>
-          <div style="font-size:13px;color:var(--muted)">Connection API</div>
-          <div id="conninfo"><small>—</small></div>
+
+        <div class="metrics" style="min-width:260px">
+          <div class="metric"><div><div class="label">Ping</div></div><div class="value" id="pingVal">— ms</div></div>
+          <div class="metric"><div><div class="label">Download</div></div><div class="value" id="downVal">— Mbps</div></div>
+          <div class="metric"><div><div class="label">Upload</div></div><div class="value" id="upVal">— Mbps</div></div>
+
+          <div class="controls">
+            <button class="btn" id="startBtn">Start Test</button>
+            <button class="btn ghost" id="stopBtn">Stop</button>
+          </div>
+
+          <div style="margin-top:8px;">
+            <small class="note">File test default utk download: <code>https://speed.hetzner.de/10MB.bin</code>. Upload akan dikirim ke <code>https://httpbin.org/post</code>.</small>
+          </div>
         </div>
-        <div>
-          <div style="font-size:13px;color:var(--muted)">Last check</div>
-          <div id="last">—</div>
+      </div>
+
+      <div class="footer" id="statusText">Status: Idle</div>
+    </div>
+
+    <div class="right">
+      <h2 style="margin:0 0 10px">Pengaturan & Info</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="font-size:13px;color:var(--muted)">URL Download (CORS)</label>
+        <input id="downloadURL" type="text" value="https://speed.hetzner.de/10MB.bin" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:8px;color:inherit" />
+        <label style="font-size:13px;color:var(--muted)">Endpoint Upload (CORS)</label>
+        <input id="uploadURL" type="text" value="https://httpbin.org/post" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:8px;color:inherit" />
+        <label style="font-size:13px;color:var(--muted)">Ping target</label>
+        <input id="pingURL" type="text" value="https://httpbin.org/get" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:8px;color:inherit" />
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn ghost" id="cfgQuick">Quick Mode</button>
+          <button class="btn ghost" id="cfgPrecise">Precise Mode</button>
+        </div>
+
+        <div style="margin-top:10px;color:var(--muted);font-size:13px">
+          <strong>Catatan penting</strong>
+          <ul style="margin:6px 0 0 18px;color:var(--muted)">
+            <li>Hasil dipengaruhi CORS & server test.</li>
+            <li>Untuk hasil paling akurat, hosting file test di domain yang sama.</li>
+            <li>Browser membatasi akurasi – ini bukan pengganti aplikasi native.</li>
+          </ul>
         </div>
       </div>
     </div>
-
-    <div class="row">
-      <div class="card">
-        <label for="pingUrl">URL untuk ping / test latency</label>
-        <input id="pingUrl" type="text" value="https://httpbin.org/get" />
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button id="runPing">Jalankan Ping (10x)</button>
-          <button id="stopPing">Stop</button>
-        </div>
-        <div style="margin-top:10px">
-          <div style="font-size:13px;color:var(--muted)">Hasil ping</div>
-          <pre id="pingResult">—</pre>
-        </div>
-      </div>
-
-      <div class="card">
-        <label for="downloadUrl">URL untuk uji download (opsional — harus mengizinkan CORS)</label>
-        <input id="downloadUrl" type="text" placeholder="https://example.com/10MB.bin" />
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button id="runDownload">Uji Download</button>
-          <button id="runUpload">Uji Upload (buatkan POST ke URL)</button>
-        </div>
-        <div style="margin-top:10px">
-          <div style="font-size:13px;color:var(--muted)">Hasil bandwidth</div>
-          <pre id="bwResult">—</pre>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <label>Log / Konsol</label>
-      <pre id="log" style="height:160px">—</pre>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button id="clearLog">Bersihkan Log</button>
-        <button id="copyLog">Salin Log</button>
-      </div>
-    </div>
-
-    <footer>Catatan: beberapa uji (download/upload) membutuhkan file/endpoint yang mengizinkan CORS. Untuk hasil paling andal — tempatkan file pengujian pada server yang sama dengan laman ini.</footer>
   </div>
+</div>
 
 <script>
-const statusEl = document.getElementById('status').querySelector('.value');
-const typeEl = document.getElementById('type');
-const connInfo = document.getElementById('conninfo');
-const lastEl = document.getElementById('last');
-const pingUrlInput = document.getElementById('pingUrl');
-const pingResult = document.getElementById('pingResult');
-const runPingBtn = document.getElementById('runPing');
-const stopPingBtn = document.getElementById('stopPing');
-const logEl = document.getElementById('log');
-const clearLogBtn = document.getElementById('clearLog');
-const copyLogBtn = document.getElementById('copyLog');
-const downloadUrlInput = document.getElementById('downloadUrl');
-const runDownloadBtn = document.getElementById('runDownload');
-const runUploadBtn = document.getElementById('runUpload');
-const bwResult = document.getElementById('bwResult');
+/*
+  Simple SpeedTest client-side:
+  - Ping: multiple small GET requests to pingURL
+  - Download: stream-read a file (downloadURL) and measure bytes/time
+  - Upload: POST a generated blob to uploadURL and measure bytes/time
 
-let pingAbort = false;
+  Gauge: needle transforms from -90deg (0) to +90deg (max)
+*/
 
-function log(...args){
-  const s = new Date().toLocaleTimeString() + ' — ' + args.join(' ');
-  if(logEl.textContent.trim() === '—') logEl.textContent = '';
-  logEl.textContent += s + '\n';
-  logEl.scrollTop = logEl.scrollHeight;
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const pingVal = document.getElementById('pingVal');
+const downVal = document.getElementById('downVal');
+const upVal = document.getElementById('upVal');
+const statusText = document.getElementById('statusText');
+const gaugeCenter = document.getElementById('gaugeCenter');
+const needle = document.getElementById('needleGroup');
+const activeArc = document.getElementById('activeArc');
+const downloadURL = document.getElementById('downloadURL');
+const uploadURL = document.getElementById('uploadURL');
+const pingURL = document.getElementById('pingURL');
+const mainCard = document.getElementById('mainCard');
+
+let running = false;
+let abortController = null;
+
+// Gauge utility: map value (0..max) to degrees (-90 .. +90)
+function valueToDeg(value, max){
+  const clamped = Math.max(0, Math.min(value, max));
+  return -90 + (clamped / max) * 180;
 }
 
-function updateStatus(){
-  const online = navigator.onLine;
-  statusEl.textContent = online ? 'Online' : 'Offline';
-  statusEl.style.color = online ? '#7ef0f6' : '#ff9b9b';
-  lastEl.textContent = new Date().toLocaleString();
-  // Connection API
-  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if(c){
-    connInfo.innerHTML = `<small>type: ${c.effectiveType || c.type || '—'}, downlink: ${c.downlink || '—'} Mbps, rtt: ${c.rtt || '—'} ms</small>`;
-  } else {
-    connInfo.innerHTML = '<small>Network Information API tidak tersedia di browser ini</small>';
-  }
+// animate needle to value
+function setGauge(value, max, labelText){
+  const deg = valueToDeg(value, max);
+  needle.style.transform = `rotate(${deg}deg)`;
+  // arc stroke dash - approximate by percentage
+  const pct = Math.max(0, Math.min(1, value / max));
+  const total = 1000;
+  activeArc.setAttribute('stroke-dasharray', `${Math.round(total * pct)} ${total}`);
+  gaugeCenter.textContent = labelText;
 }
 
-window.addEventListener('online', ()=>{ updateStatus(); log('Event: online'); });
-window.addEventListener('offline', ()=>{ updateStatus(); log('Event: offline'); });
-if(navigator.connection){ navigator.connection.addEventListener('change', ()=>{ updateStatus(); log('Connection info changed'); }) }
-updateStatus();
+// helper sleep
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function pingUrl(url, count=10){
-  pingAbort = false;
+async function measurePing(target, count = 6){
   const results = [];
-  pingResult.textContent = 'Running...';
-  log('Mulai ping', url, 'x'+count);
   for(let i=0;i<count;i++){
-    if(pingAbort) { log('Ping dihentikan'); break; }
+    if(!running) break;
     const start = performance.now();
     try{
-      // gunakan fetch dengan mode no-cors bisa menghasilkan opaques; prefer GET with cache: no-store
-      const res = await fetch(url, {method:'GET', cache:'no-store', mode:'cors'});
-      const end = performance.now();
-      const rtt = Math.round(end-start);
-      results.push(rtt);
-      log(`ping ${i+1}: ${rtt} ms (status ${res.status || 'opaque'})`);
-      // small delay between pings
-      await new Promise(r=>setTimeout(r, 250));
+      // fetch with cache-bypass; prefer HEAD if server allows
+      const res = await fetch(target, {method:'GET', cache:'no-store', mode:'cors'});
+      const duration = Math.round(performance.now() - start);
+      results.push(duration);
+      statusText.textContent = `Ping ${i+1}/${count}: ${duration} ms (HTTP ${res.status || 'ok'})`;
+      await sleep(120);
     }catch(e){
-      const end = performance.now();
-      const rtt = Math.round(end-start);
+      const duration = Math.round(performance.now() - start);
       results.push(null);
-      log(`ping ${i+1}: gagal (${e.message})`);
+      statusText.textContent = `Ping ${i+1}/${count}: failed`;
+      await sleep(150);
     }
   }
-  const numeric = results.filter(x=>typeof x === 'number');
-  if(numeric.length>0){
-    const min = Math.min(...numeric);
-    const max = Math.max(...numeric);
-    const avg = Math.round(numeric.reduce((a,b)=>a+b,0)/numeric.length);
-    pingResult.textContent = `Min: ${min} ms\nAvg: ${avg} ms\nMax: ${max} ms\nRaw: ${results.map(r=>r===null?'-':r+'ms').join(', ')}`;
-  } else {
-    pingResult.textContent = 'Semua percobaan gagal. Cek URL atau CORS.';
-  }
+  const numeric = results.filter(x => typeof x === 'number');
+  if(numeric.length === 0) return null;
+  const sum = numeric.reduce((a,b)=>a+b,0);
+  const avg = Math.round(sum / numeric.length);
+  const min = Math.min(...numeric);
+  const max = Math.max(...numeric);
+  return {avg,min,max,raw:results};
 }
 
-runPingBtn.addEventListener('click', ()=>{
-  const url = pingUrlInput.value.trim();
-  if(!url) return alert('Masukkan URL untuk di-ping');
-  pingUrl(url,10);
-});
-stopPingBtn.addEventListener('click', ()=>{ pingAbort = true; log('Permintaan stop ping') });
-
-clearLogBtn.addEventListener('click', ()=>{ logEl.textContent = '—' });
-copyLogBtn.addEventListener('click', async ()=>{
-  try{ await navigator.clipboard.writeText(logEl.textContent); alert('Log disalin ke clipboard') }catch(e){ alert('Gagal menyalin: '+e.message) }
-});
-
-// Simple download speed test (works if server mengizinkan CORS)
-async function runDownload(url){
-  if(!url) return alert('Masukkan URL file untuk uji download (harus CORS-enabled)');
-  log('Mulai uji download:', url);
+async function measureDownload(url){
+  // returns Mbps (megabits per second)
+  abortController = new AbortController();
+  const signal = abortController.signal;
+  const start = performance.now();
+  let bytes = 0;
   try{
-    const start = performance.now();
-    const resp = await fetch(url, {cache:'no-store', mode:'cors'});
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
-    if(!reader){
-      // fallback: read as blob
+    const resp = await fetch(url, {cache:'no-store', mode:'cors', signal});
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    // try streaming
+    if(resp.body && resp.body.getReader){
+      const reader = resp.body.getReader();
+      while(true){
+        if(!running) { abortController.abort(); break; }
+        const {done, value} = await reader.read();
+        if(done) break;
+        bytes += value.length;
+        // update gauge progressively (assume max target 200 Mbps so needle moves as we get bytes)
+        // we'll show transient value using short-term bytes/time
+        const now = performance.now();
+        const secs = (now - start) / 1000;
+        const mbps = (bytes * 8 / (1024*1024)) / Math.max(secs, 0.001);
+        setGauge(mbps, 200, Math.round(mbps) + ' Mbps');
+      }
+    } else {
+      // fallback: blob
       const blob = await resp.blob();
-      const end = performance.now();
-      const bytes = blob.size;
-      const secs = (end-start)/1000;
-      const mbps = (bytes*8/ (1024*1024)) / secs;
-      bwResult.textContent = `Downloaded ${bytes} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps`;
-      log(bwResult.textContent);
-      return;
-    }
-    let bytes = 0;
-    while(true){
-      const {done,value} = await reader.read();
-      if(done) break;
-      bytes += value.length;
+      bytes = blob.size;
     }
     const end = performance.now();
-    const secs = (end-start)/1000;
-    const mbps = (bytes*8/ (1024*1024)) / secs;
-    bwResult.textContent = `Downloaded ${bytes} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps`;
-    log(bwResult.textContent);
+    const secs = (end - start) / 1000;
+    const mbps = (bytes * 8 / (1024*1024)) / Math.max(secs, 0.001);
+    return {mbps,bytes,secs};
   }catch(e){
-    bwResult.textContent = 'Gagal uji download: '+e.message;
-    log('Gagal uji download:', e.message);
+    if(e.name === 'AbortError') {
+      return null;
+    }
+    throw e;
+  } finally {
+    abortController = null;
   }
 }
 
-runDownloadBtn.addEventListener('click', ()=>{ runDownload(downloadUrlInput.value.trim()) });
-
-// Simple upload test: POST generated blob (will fail if endpoint doesn't accept CORS or large uploads)
-async function runUpload(url){
-  if(!url) return alert('Masukkan URL endpoint untuk POST (upload)');
-  log('Mulai uji upload ke', url);
+async function measureUpload(url, sizeBytes = 2 * 1024 * 1024){
+  // generates a blob and POSTs
+  abortController = new AbortController();
+  const signal = abortController.signal;
+  // create random-ish buffer (not too slow)
+  const chunk = new Uint8Array(65536);
+  for(let i=0;i<chunk.length;i+=4096) chunk[i] = i % 256;
+  // build by repeating chunk
+  const parts = [];
+  let remaining = sizeBytes;
+  while(remaining > 0){
+    parts.push(chunk.subarray(0, Math.min(remaining, chunk.length)));
+    remaining -= chunk.length;
+  }
+  const blob = new Blob(parts);
+  const start = performance.now();
   try{
-    // buat 1 MB buffer
-    const size = 1024*1024; // 1MB
-    const arr = new Uint8Array(size);
-    for(let i=0;i<size;i+=4096) arr[i]=i%256;
-    const blob = new Blob([arr]);
-    const start = performance.now();
-    const resp = await fetch(url, {method:'POST', body:blob, mode:'cors'});
+    const resp = await fetch(url, {method:'POST', body:blob, mode:'cors', signal});
     const end = performance.now();
-    const secs = (end-start)/1000;
-    const mbps = (size*8/(1024*1024)) / secs;
-    bwResult.textContent = `Uploaded ${size} bytes in ${secs.toFixed(2)}s — ${mbps.toFixed(2)} Mbps (status ${resp.status})`;
-    log(bwResult.textContent);
+    const secs = (end - start)/1000;
+    const mbps = (sizeBytes * 8 / (1024*1024)) / Math.max(secs, 0.001);
+    return {mbps, secs, status: resp.status};
   }catch(e){
-    bwResult.textContent = 'Gagal uji upload: '+e.message;
-    log('Gagal uji upload:', e.message);
+    if(e.name === 'AbortError') return null;
+    throw e;
+  } finally {
+    abortController = null;
   }
 }
-runUploadBtn.addEventListener('click', ()=>{ runUpload(downloadUrlInput.value.trim()) });
 
+async function runFullTest(){
+  running = true;
+  mainCard.classList.add('running');
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  statusText.textContent = 'Running test...';
+  pingVal.textContent = '— ms';
+  downVal.textContent = '— Mbps';
+  upVal.textContent = '— Mbps';
+  setGauge(0,200,'—');
+  try{
+    // 1) Ping
+    statusText.textContent = 'Measuring ping...';
+    const pingTarget = pingURL.value || pingURL.getAttribute('value');
+    const pingRes = await measurePing(pingTarget, 6);
+    if(!running) throw new Error('Stopped');
+    if(pingRes){
+      pingVal.textContent = `${pingRes.avg} ms`;
+      setGauge(Math.max(0, Math.min(40, pingRes.avg)), 200, pingRes.avg + ' ms'); // show small effect
+    } else {
+      pingVal.textContent = 'fail';
+    }
+
+    // short pause
+    await sleep(350);
+
+    // 2) Download
+    statusText.textContent = 'Measuring download...';
+    const durl = downloadURL.value || downloadURL.getAttribute('value');
+    const dres = await measureDownload(durl);
+    if(!running) throw new Error('Stopped');
+    if(dres){
+      downVal.textContent = dres.mbps.toFixed(2) + ' Mbps';
+      setGauge(Math.min(200, dres.mbps), 200, Math.round(dres.mbps) + ' Mbps');
+    } else {
+      downVal.textContent = 'fail';
+    }
+
+    await sleep(300);
+
+    // 3) Upload
+    statusText.textContent = 'Measuring upload...';
+    const uurl = uploadURL.value || uploadURL.getAttribute('value');
+    const ures = await measureUpload(uurl, 2 * 1024 * 1024); // 2 MB
+    if(!running) throw new Error('Stopped');
+    if(ures){
+      upVal.textContent = ures.mbps.toFixed(2) + ' Mbps';
+      setGauge(Math.min(200, ures.mbps), 200, Math.round(ures.mbps) + ' Mbps');
+    } else {
+      upVal.textContent = 'fail';
+    }
+
+    statusText.textContent = 'Test completed';
+  }catch(e){
+    if(e.message === 'Stopped'){
+      statusText.textContent = 'Stopped by user';
+    } else {
+      statusText.textContent = 'Error: ' + (e.message || e);
+      console.error(e);
+    }
+  } finally {
+    running = false;
+    mainCard.classList.remove('running');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  }
+}
+
+startBtn.addEventListener('click', ()=>{
+  if(running) return;
+  running = true;
+  runFullTest();
+});
+
+stopBtn.addEventListener('click', ()=>{
+  if(!running) return;
+  running = false;
+  if(abortController) abortController.abort();
+  statusText.textContent = 'Stopping...';
+});
+
+// quick/precise configurations
+document.getElementById('cfgQuick').addEventListener('click', ()=>{
+  downloadURL.value = 'https://speed.hetzner.de/10MB.bin';
+  uploadURL.value = 'https://httpbin.org/post';
+  pingURL.value = 'https://httpbin.org/get';
+  statusText.textContent = 'Quick mode selected';
+});
+document.getElementById('cfgPrecise').addEventListener('click', ()=>{
+  downloadURL.value = 'https://speed.hetzner.de/100MB.bin';
+  uploadURL.value = 'https://httpbin.org/post';
+  pingURL.value = 'https://httpbin.org/get';
+  statusText.textContent = 'Precise mode selected (larger download)';
+});
+
+// build tick marks on SVG dynamically
+(function buildTicks(){
+  const svg = document.getElementById('gaugeSVG');
+  const centerX = 160, centerY = 176, radius = 120;
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('id','ticks');
+  // major ticks every 20% (0..200 Mbps scale)
+  const max = 200;
+  const majorStep = 40; // Mbps (5 ticks)
+  for(let v=0; v<=max; v+=majorStep){
+    const t = (v / max); // 0..1
+    const angle = -90 + t*180; // deg
+    const rad = angle * Math.PI/180;
+    const x1 = centerX + Math.cos(rad) * (radius-10);
+    const y1 = centerY + Math.sin(rad) * (radius-10);
+    const x2 = centerX + Math.cos(rad) * (radius-24);
+    const y2 = centerY + Math.sin(rad) * (radius-24);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('class','tick-major');
+    line.setAttribute('stroke-linecap','round');
+    g.appendChild(line);
+
+    // label
+    const tx = centerX + Math.cos(rad) * (radius-36);
+    const ty = centerY + Math.sin(rad) * (radius-36) + 6;
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', tx);
+    text.setAttribute('y', ty);
+    text.setAttribute('text-anchor','middle');
+    text.setAttribute('font-size','11');
+    text.setAttribute('fill','rgba(255,255,255,0.45)');
+    text.textContent = v;
+    g.appendChild(text);
+  }
+
+  // minor ticks
+  for(let v=0; v<=max; v+=10){
+    if(v % majorStep === 0) continue;
+    const t = (v / max);
+    const angle = -90 + t*180;
+    const rad = angle * Math.PI/180;
+    const x1 = centerX + Math.cos(rad) * (radius-10);
+    const y1 = centerY + Math.sin(rad) * (radius-10);
+    const x2 = centerX + Math.cos(rad) * (radius-20);
+    const y2 = centerY + Math.sin(rad) * (radius-20);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('class','tick');
+    line.setAttribute('stroke-linecap','round');
+    g.appendChild(line);
+  }
+
+  svg.appendChild(g);
+})();
+
+// initial gauge
+setGauge(0,200,'—');
+stopBtn.disabled = true;
 </script>
 </body>
 </html>
